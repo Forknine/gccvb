@@ -1,11 +1,6 @@
 import { RESULT_COLOR_MAP, VENUE_MAP_URLS } from "backend/schedule-config";
 
-const DATE_FORMATTER = new Intl.DateTimeFormat("en-CA", {
-  year: "numeric",
-  month: "2-digit",
-  day: "2-digit",
-  timeZone: "America/Toronto"
-});
+const WED_COMP_TEAMS = new Set(["red", "orange", "yellow", "green", "blue", "purple"]);
 
 export function normalizeScheduleRows(rows) {
   const sourceRows = Array.isArray(rows) ? rows : [];
@@ -47,11 +42,11 @@ export function normalizeScheduleRow(row, rowNumber) {
   const location = cleanText(cells[3]);
   const results = normalizeResults(cells[4]);
   const teamParts = splitTeams(teams);
-  const league = cleanText(cells[5]) || teamParts.league;
+  const league = teamParts.league || normalizeLeagueName(cells[5]);
   const division = cleanText(cells[6]);
   const parsedDate = parseDate(date);
   const parsedTime = parseTime(time);
-  const dateISO = parsedDate ? DATE_FORMATTER.format(parsedDate) : "";
+  const dateISO = parsedDate ? formatDateISO(parsedDate) : "";
   const startTimestamp = parsedDate ? buildTimestamp(parsedDate, parsedTime) : null;
   const status = getStatus(results, startTimestamp);
 
@@ -211,7 +206,7 @@ function buildTimestamp(date, time) {
 
 function splitTeams(teams) {
   const parts = cleanText(teams).split(/\s+vs\.?\s+/i);
-  const league = extractLeague(teams);
+  const league = deriveLeague(teams, parts);
 
   if (parts.length !== 2) {
     return {
@@ -222,10 +217,18 @@ function splitTeams(teams) {
   }
 
   return {
-    homeTeam: cleanText(parts[0]),
-    awayTeam: ensureLeaguePrefix(parts[1], league),
+    homeTeam: stripLeaguePrefix(parts[0]),
+    awayTeam: stripLeaguePrefix(parts[1]),
     league
   };
+}
+
+function formatDateISO(date) {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+
+  return `${year}-${month}-${day}`;
 }
 
 function buildLocalDate(year, month, day) {
@@ -243,22 +246,33 @@ function buildLocalDate(year, month, day) {
   return parsed;
 }
 
-function extractLeague(value) {
-  const match = cleanText(value).match(/^(Monday|Wednesday)\b/i);
-  if (!match) {
-    return "";
+function deriveLeague(value, parts) {
+  const text = cleanText(value);
+  if (/^Monday\b/i.test(text)) {
+    return "Monday";
   }
 
-  return match[1].charAt(0).toUpperCase() + match[1].slice(1).toLowerCase();
+  if (/^Wednesday\b/i.test(text)) {
+    const teams = parts.length === 2 ? parts.map(stripLeaguePrefix) : [stripLeaguePrefix(text)];
+    const hasCompTeam = teams.some((team) => WED_COMP_TEAMS.has(team.toLowerCase()));
+
+    return hasCompTeam ? "Wed Comp" : "Wed Uber";
+  }
+
+  return "";
 }
 
-function ensureLeaguePrefix(team, league) {
-  const text = cleanText(team);
-  if (!league || new RegExp(`^${league}\\b`, "i").test(text)) {
-    return text;
-  }
+function normalizeLeagueName(value) {
+  const text = cleanText(value);
+  if (/^mon(day)?$/i.test(text)) return "Monday";
+  if (/^wed(nesday)?\s*comp$/i.test(text)) return "Wed Comp";
+  if (/^wed(nesday)?\s*uber$/i.test(text)) return "Wed Uber";
+  if (/^wed(nesday)?$/i.test(text)) return "Wed Comp";
+  return text;
+}
 
-  return `${league} ${text}`;
+function stripLeaguePrefix(value) {
+  return cleanText(value).replace(/^(Monday|Wednesday|Wed Comp|Wed Uber)\s+/i, "");
 }
 
 function getStatus(results, startTimestamp) {

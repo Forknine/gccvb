@@ -184,19 +184,11 @@
     }
 
     .date-heading {
-      display: flex;
-      justify-content: space-between;
-      gap: 12px;
+      display: block;
       padding: 13px 16px;
       background: var(--schedule-surface-soft);
       border-bottom: 1px solid var(--schedule-border);
       font-weight: 700;
-    }
-
-    .date-heading time {
-      color: var(--schedule-muted);
-      font-size: 14px;
-      font-weight: 600;
     }
 
     .schedule-row,
@@ -327,7 +319,7 @@
 
     @media (max-width: 640px) {
       .schedule-app {
-        padding: 14px;
+        padding: 8px;
       }
 
       .schedule-topbar {
@@ -346,9 +338,9 @@
 
       .filters {
         grid-template-columns: 1fr auto;
-        padding: 12px;
-        position: sticky;
-        top: 0;
+        gap: 8px;
+        margin-bottom: 10px;
+        padding: 8px;
         z-index: 2;
       }
 
@@ -381,19 +373,43 @@
       }
 
       .schedule-row {
-        grid-template-columns: 1fr;
-        gap: 8px;
-        padding: 15px;
+        grid-template-columns: 64px minmax(0, 1fr);
+        gap: 4px 10px;
+        padding: 9px 10px;
       }
 
       .date-heading {
-        align-items: flex-start;
-        flex-direction: column;
-        gap: 3px;
+        padding: 8px 10px;
+        font-size: 14px;
+      }
+
+      .schedule-list {
+        gap: 8px;
       }
 
       .game-time {
-        font-size: 19px;
+        grid-row: span 3;
+        font-size: 15px;
+        white-space: normal;
+      }
+
+      .game-teams {
+        font-size: 15px;
+      }
+
+      .game-meta {
+        display: none;
+      }
+
+      .results {
+        gap: 4px;
+      }
+
+      .result-pill,
+      .status-pill {
+        min-height: 24px;
+        padding: 2px 7px;
+        font-size: 12px;
       }
     }
   </style>
@@ -414,6 +430,13 @@
 
         <button class="button secondary filter-toggle" id="filterToggle" type="button" aria-controls="filters" aria-expanded="false" title="Show filters">Filter</button>
 
+        <div class="field collapsible-filter hidden" id="leagueField">
+          <label for="league">League</label>
+          <select id="league" name="league">
+            <option value="">All Leagues</option>
+          </select>
+        </div>
+
         <div class="field collapsible-filter">
           <label for="team">Team</label>
           <select id="team" name="team">
@@ -425,13 +448,6 @@
           <label for="location">Location</label>
           <select id="location" name="location">
             <option value="">All Locations</option>
-          </select>
-        </div>
-
-        <div class="field collapsible-filter hidden" id="leagueField">
-          <label for="league">League</label>
-          <select id="league" name="league">
-            <option value="">All Leagues</option>
           </select>
         </div>
 
@@ -522,51 +538,52 @@
       scheduleCount: document.getElementById("scheduleCount")
     };
 
-    const parentOrigin = getParentOrigin();
+    const SCHEDULE_API_URL = "https://www.gccvb.org/_functions/schedule";
 
-    let readyInterval = window.setInterval(() => sendToParent({ type: "schedule:ready" }), 600);
-
-    window.addEventListener("message", handleMessage);
     elements.filters.addEventListener("change", handleFilterChange);
     elements.search.addEventListener("input", handleSearchInput);
     elements.clearFilters.addEventListener("click", clearFilters);
     elements.clearEmpty.addEventListener("click", clearFilters);
-    elements.retry.addEventListener("click", () => sendToParent({ type: "schedule:retry" }));
+    elements.retry.addEventListener("click", loadSchedule);
     elements.filterToggle.addEventListener("click", toggleFilters);
 
-    sendToParent({ type: "schedule:ready" });
+    loadSchedule();
 
-    function handleMessage(event) {
-      const message = event.data || {};
+    async function loadSchedule() {
+      showState("loading");
+      elements.scheduleCount.textContent = "Loading games...";
 
-      if (message.type === "schedule:loading") {
-        showState("loading");
-        return;
-      }
+      try {
+        const response = await fetch(SCHEDULE_API_URL, {
+          headers: {
+            accept: "application/json"
+          }
+        });
 
-      if (message.type === "schedule:error") {
-        showState("error");
-        return;
-      }
+        if (!response.ok) {
+          throw new Error(`Schedule API failed with ${response.status}`);
+        }
 
-      if (message.type === "schedule:data") {
-        window.clearInterval(readyInterval);
-        state.games = Array.isArray(message.games) ? message.games : [];
+        const schedule = await response.json();
+        state.games = Array.isArray(schedule.games) ? schedule.games : [];
         state.filters = {
           ...state.filters,
-          ...pickKnownFilters(message.filters || {})
+          ...pickKnownFilters(getFiltersFromUrl())
         };
 
         hydrateControls();
         applyFilters(false);
+      } catch (error) {
+        console.error("Schedule load failed:", error);
+        showState("error");
       }
     }
 
     function hydrateControls() {
-      populateSelect(elements.team, getOptionsFromTeams(state.games), "All Teams");
+      populateSelect(elements.team, getOptionsFromTeams(getGamesForTeamOptions()), "All Teams");
       populateSelect(elements.location, getUniqueValues(state.games, "location"), "All Locations");
 
-      const leagues = getUniqueValues(state.games, "league");
+      const leagues = getLeagueOptions(state.games);
       const divisions = getUniqueValues(state.games, "division");
 
       populateSelect(elements.league, leagues, "All Leagues");
@@ -587,6 +604,10 @@
       }
 
       state.filters[event.target.name] = event.target.value;
+      if (event.target.name === "league") {
+        state.filters.team = "";
+        hydrateControls();
+      }
       applyFilters(true);
     }
 
@@ -622,10 +643,7 @@
       render();
 
       if (announce) {
-        sendToParent({
-          type: "schedule:filtersChanged",
-          filters: state.filters
-        });
+        syncFilterUrl();
       }
     }
 
@@ -657,8 +675,7 @@
       }
 
       return normalize(game.homeTeam) === expected
-        || normalize(game.awayTeam) === expected
-        || normalize(game.teams).includes(expected);
+        || normalize(game.awayTeam) === expected;
     }
 
     function matchesRange(game) {
@@ -720,14 +737,10 @@
         const heading = document.createElement("div");
         heading.className = "date-heading";
 
-        const label = document.createElement("span");
+        const label = document.createElement("time");
+        label.dateTime = group.dateISO || "";
         label.textContent = getFriendlyDate(group.dateISO, group.fallbackDate);
-
-        const exact = document.createElement("time");
-        exact.dateTime = group.dateISO || "";
-        exact.textContent = group.dateISO || group.fallbackDate;
-
-        heading.append(label, exact);
+        heading.appendChild(label);
         section.appendChild(heading);
 
         const header = document.createElement("div");
@@ -760,7 +773,7 @@
       const matchup = document.createElement("div");
       const teams = document.createElement("div");
       teams.className = "game-teams";
-      teams.textContent = game.teams || "Teams TBD";
+      teams.textContent = getDisplayTeams(game);
       matchup.appendChild(teams);
 
       const metaText = [game.league, game.division].filter(Boolean).join(" / ");
@@ -854,6 +867,15 @@
       return Array.from(values).sort(compareTeamOptions);
     }
 
+    function getGamesForTeamOptions() {
+      const league = normalize(state.filters.league);
+      if (!league) {
+        return state.games;
+      }
+
+      return state.games.filter((game) => normalize(game.league) === league);
+    }
+
     function toggleFilters() {
       const isExpanded = elements.filters.classList.toggle("expanded");
       elements.filterToggle.setAttribute("aria-expanded", String(isExpanded));
@@ -870,6 +892,15 @@
       });
 
       return Array.from(values).sort((first, second) => first.localeCompare(second));
+    }
+
+    function getLeagueOptions(games) {
+      const preferredOrder = ["Monday", "Wed Comp", "Wed Uber"];
+      const values = getUniqueValues(games, "league");
+      const known = preferredOrder.filter((league) => values.includes(league));
+      const other = values.filter((league) => !preferredOrder.includes(league));
+
+      return known.concat(other);
     }
 
     function compareTeamOptions(first, second) {
@@ -901,7 +932,11 @@
         return fallback || "Date TBD";
       }
 
-      const date = new Date(`${dateISO}T00:00:00`);
+      const date = parseLocalDate(dateISO);
+      if (!date) {
+        return fallback || dateISO;
+      }
+
       const today = startOfDay(new Date());
       const tomorrow = new Date(today.getTime() + dayMs());
 
@@ -917,6 +952,23 @@
         month: "long",
         day: "numeric"
       }).format(date);
+    }
+
+    function getDisplayTeams(game) {
+      if (game.homeTeam && game.awayTeam) {
+        return `${game.homeTeam} vs ${game.awayTeam}`;
+      }
+
+      return String(game.teams || "Teams TBD").replace(/\b(Monday|Wednesday|Wed Comp|Wed Uber)\s+/gi, "");
+    }
+
+    function parseLocalDate(dateISO) {
+      const parts = String(dateISO || "").match(/^(\d{4})-(\d{2})-(\d{2})$/);
+      if (!parts) {
+        return null;
+      }
+
+      return new Date(Number(parts[1]), Number(parts[2]) - 1, Number(parts[3]));
     }
 
     function getStatusLabel(status) {
@@ -935,6 +987,33 @@
       return picked;
     }
 
+    function getFiltersFromUrl() {
+      const params = new URLSearchParams(window.location.search);
+
+      return {
+        search: params.get("search") || "",
+        team: params.get("team") || "",
+        location: params.get("location") || "",
+        league: params.get("league") || "",
+        division: params.get("division") || "",
+        range: params.get("range") || "upcoming"
+      };
+    }
+
+    function syncFilterUrl() {
+      const params = new URLSearchParams();
+
+      Object.entries(state.filters).forEach(([key, value]) => {
+        if (value && !(key === "range" && value === "upcoming")) {
+          params.set(key, value);
+        }
+      });
+
+      const query = params.toString();
+      const nextUrl = query ? `${window.location.pathname}?${query}` : window.location.pathname;
+      window.history.replaceState({}, "", nextUrl);
+    }
+
     function normalize(value) {
       return String(value || "").trim().toLowerCase();
     }
@@ -947,21 +1026,6 @@
       return 24 * 60 * 60 * 1000;
     }
 
-    function sendToParent(message) {
-      window.parent.postMessage(message, parentOrigin);
-    }
-
-    function getParentOrigin() {
-      try {
-        if (document.referrer) {
-          return new URL(document.referrer).origin;
-        }
-      } catch (error) {
-        console.warn("Unable to determine parent origin.", error);
-      }
-
-      return "*";
-    }
   </script>
 </body>
 </html>
