@@ -40,6 +40,7 @@ try {
   assert.equal(result.games[1].league, "Wed Comp", "red/orange/yellow/green/blue/purple Wednesday teams should be Wed Comp");
   assert.equal(result.games[1].homeTeam, "Red", "home team should omit the night prefix");
   assert.equal(result.games[1].awayTeam, "Blue", "away team should omit the night prefix");
+  assert.equal(result.games[1].displayTeams, "Wed Comp Red vs Blue", "display teams should include league context once");
   assert.equal(result.games[1].results[0].label, "Red", "result tokens should be normalized");
   assert.equal(result.games[2].dateISO, "", "invalid dates should remain renderable without ISO dates");
   assert.ok(result.warnings.length >= 2, "malformed rows should be reported as warnings");
@@ -51,6 +52,7 @@ try {
   assert.equal(derived.games[0].league, "Monday", "league should be derived from matchup text when the sheet omits it");
   assert.equal(derived.games[0].homeTeam, "Green", "team names should omit the night prefix");
   assert.equal(derived.games[0].awayTeam, "Yellow", "away team names should omit the night prefix");
+  assert.equal(derived.games[0].displayTeams, "Monday Green vs Yellow", "Monday games should display the team league prefix once");
 
   const uber = normalizeScheduleRows([
     ["2026-09-16", "7:00 PM", "Wednesday Maroon vs Aqua", "CCVI", "", "", ""]
@@ -58,6 +60,7 @@ try {
 
   assert.equal(uber.games[0].league, "Wed Uber", "non-comp Wednesday teams should be Wed Uber");
   assert.equal(uber.games[0].homeTeam, "Maroon", "Wed Uber home team should omit the night prefix");
+  assert.equal(uber.games[0].displayTeams, "Wed Uber Maroon vs Aqua", "Wed Uber games should display the league context once");
 } finally {
   await rm(tempDir, { recursive: true, force: true });
 }

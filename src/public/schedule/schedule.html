@@ -14,6 +14,9 @@
       --schedule-accent: #0f766e;
       --schedule-accent-dark: #115e59;
       --schedule-danger: #b91c1c;
+      --league-monday: #0f766e;
+      --league-comp: #2563eb;
+      --league-uber: #be123c;
       --schedule-radius: 8px;
       --schedule-shadow: 0 10px 24px rgba(23, 32, 51, 0.08);
       --schedule-focus: 0 0 0 3px rgba(15, 118, 110, 0.22);
@@ -150,6 +153,17 @@
       background: var(--schedule-surface-soft);
     }
 
+    .button.subtle {
+      border-color: var(--schedule-border);
+      background: #fff;
+      color: var(--schedule-muted);
+    }
+
+    .button.subtle.active {
+      border-color: var(--schedule-accent);
+      color: var(--schedule-accent-dark);
+    }
+
     .state {
       padding: 22px;
       border: 1px solid var(--schedule-border);
@@ -213,6 +227,25 @@
       border-top: 1px solid var(--schedule-border);
     }
 
+    .schedule-row {
+      border-left: 5px solid var(--schedule-border);
+    }
+
+    .schedule-row.league-monday {
+      border-left-color: var(--league-monday);
+      background: linear-gradient(90deg, rgba(15, 118, 110, 0.08), #fff 42%);
+    }
+
+    .schedule-row.league-wed-comp {
+      border-left-color: var(--league-comp);
+      background: linear-gradient(90deg, rgba(37, 99, 235, 0.08), #fff 42%);
+    }
+
+    .schedule-row.league-wed-uber {
+      border-left-color: var(--league-uber);
+      background: linear-gradient(90deg, rgba(190, 18, 60, 0.08), #fff 42%);
+    }
+
     .game-time {
       font-weight: 700;
       white-space: nowrap;
@@ -229,6 +262,34 @@
       color: var(--schedule-muted);
       font-size: 13px;
       overflow-wrap: anywhere;
+    }
+
+    .league-chip {
+      display: inline-flex;
+      align-items: center;
+      min-height: 22px;
+      margin-right: 6px;
+      padding: 2px 7px;
+      border-radius: 999px;
+      background: var(--schedule-surface-soft);
+      color: var(--schedule-muted);
+      font-size: 12px;
+      font-weight: 700;
+    }
+
+    .league-chip.league-monday {
+      background: rgba(15, 118, 110, 0.12);
+      color: var(--league-monday);
+    }
+
+    .league-chip.league-wed-comp {
+      background: rgba(37, 99, 235, 0.12);
+      color: var(--league-comp);
+    }
+
+    .league-chip.league-wed-uber {
+      background: rgba(190, 18, 60, 0.12);
+      color: var(--league-uber);
     }
 
     .location-link {
@@ -319,29 +380,44 @@
 
     @media (max-width: 640px) {
       .schedule-app {
-        padding: 8px;
+        padding: 4px;
       }
 
       .schedule-topbar {
-        align-items: flex-start;
-        flex-direction: column;
-        gap: 6px;
+        align-items: center;
+        flex-direction: row;
+        gap: 8px;
+        margin-bottom: 8px;
       }
 
       .schedule-title {
-        font-size: 24px;
+        font-size: 21px;
       }
 
       .schedule-count {
+        font-size: 12px;
         white-space: normal;
       }
 
       .filters {
         grid-template-columns: 1fr auto;
-        gap: 8px;
-        margin-bottom: 10px;
-        padding: 8px;
+        gap: 6px;
+        margin-bottom: 8px;
+        padding: 6px;
         z-index: 2;
+      }
+
+      .field label {
+        margin-bottom: 3px;
+        font-size: 12px;
+      }
+
+      .field input,
+      .field select,
+      .button {
+        min-height: 38px;
+        padding: 6px 8px;
+        font-size: 14px;
       }
 
       .filter-toggle {
@@ -359,12 +435,14 @@
       }
 
       .filters .collapsible-filter,
-      .filters #clearFilters {
+      .filters #clearFilters,
+      .filters #saveFavorite {
         grid-column: 1 / -1;
       }
 
       .filters:not(.expanded) .collapsible-filter,
-      .filters:not(.expanded) #clearFilters {
+      .filters:not(.expanded) #clearFilters,
+      .filters:not(.expanded) #saveFavorite {
         display: none;
       }
 
@@ -373,14 +451,16 @@
       }
 
       .schedule-row {
-        grid-template-columns: 64px minmax(0, 1fr);
-        gap: 4px 10px;
-        padding: 9px 10px;
+        grid-template-columns: 48px minmax(0, 1fr) minmax(54px, auto);
+        gap: 2px 7px;
+        align-items: center;
+        padding: 6px 7px;
+        border-left-width: 4px;
       }
 
       .date-heading {
-        padding: 8px 10px;
-        font-size: 14px;
+        padding: 6px 8px;
+        font-size: 13px;
       }
 
       .schedule-list {
@@ -388,20 +468,36 @@
       }
 
       .game-time {
-        grid-row: span 3;
-        font-size: 15px;
+        grid-row: auto;
+        font-size: 13px;
         white-space: normal;
       }
 
       .game-teams {
-        font-size: 15px;
+        font-size: 13px;
+        line-height: 1.2;
       }
 
       .game-meta {
         display: none;
       }
 
+      .game-location {
+        justify-self: end;
+        max-width: 82px;
+        font-size: 12px;
+        line-height: 1.15;
+        text-align: right;
+      }
+
+      .location-link,
+      .location-text {
+        overflow-wrap: normal;
+        word-break: normal;
+      }
+
       .results {
+        grid-column: 2 / 4;
         gap: 4px;
       }
 
@@ -471,6 +567,7 @@
         </div>
 
         <button class="button secondary" id="clearFilters" type="button">Clear</button>
+        <button class="button subtle collapsible-filter" id="saveFavorite" type="button">Save Favourite</button>
       </form>
 
       <section id="loadingState" class="skeleton" aria-label="Loading schedule">
@@ -528,6 +625,7 @@
       leagueField: document.getElementById("leagueField"),
       divisionField: document.getElementById("divisionField"),
       clearFilters: document.getElementById("clearFilters"),
+      saveFavorite: document.getElementById("saveFavorite"),
       clearEmpty: document.getElementById("clearEmpty"),
       retry: document.getElementById("retry"),
       loadingState: document.getElementById("loadingState"),
@@ -539,6 +637,7 @@
     };
 
     const SCHEDULE_API_URL = "https://www.gccvb.org/_functions/schedule";
+    const FAVORITE_FILTER_KEY = "gccvbScheduleFavoriteFilters";
 
     elements.filters.addEventListener("change", handleFilterChange);
     elements.search.addEventListener("input", handleSearchInput);
@@ -546,6 +645,7 @@
     elements.clearEmpty.addEventListener("click", clearFilters);
     elements.retry.addEventListener("click", loadSchedule);
     elements.filterToggle.addEventListener("click", toggleFilters);
+    elements.saveFavorite.addEventListener("click", saveFavoriteFilters);
 
     loadSchedule();
 
@@ -568,10 +668,12 @@
         state.games = Array.isArray(schedule.games) ? schedule.games : [];
         state.filters = {
           ...state.filters,
+          ...getFavoriteFilters(),
           ...pickKnownFilters(getFiltersFromUrl())
         };
 
         hydrateControls();
+        updateFavoriteButton();
         applyFilters(false);
       } catch (error) {
         console.error("Schedule load failed:", error);
@@ -628,6 +730,7 @@
       };
       hydrateControls();
       applyFilters(true);
+      updateFavoriteButton();
     }
 
     function applyFilters(announce) {
@@ -764,7 +867,7 @@
 
     function renderGame(game) {
       const row = document.createElement("div");
-      row.className = "schedule-row";
+      row.className = `schedule-row ${getLeagueClass(game.league)}`;
 
       const time = document.createElement("div");
       time.className = "game-time";
@@ -780,11 +883,16 @@
       if (metaText) {
         const meta = document.createElement("div");
         meta.className = "game-meta";
-        meta.textContent = metaText;
+        const chip = document.createElement("span");
+        chip.className = `league-chip ${getLeagueClass(game.league)}`;
+        chip.textContent = game.league;
+        meta.appendChild(chip);
+        meta.appendChild(document.createTextNode(metaText.replace(game.league, "").replace(/^ \/ /, "")));
         matchup.appendChild(meta);
       }
 
       const location = document.createElement("div");
+      location.className = "game-location";
       if (game.location && game.mapUrl) {
         const link = document.createElement("a");
         link.className = "location-link";
@@ -955,6 +1063,10 @@
     }
 
     function getDisplayTeams(game) {
+      if (game.displayTeams) {
+        return game.displayTeams;
+      }
+
       if (game.homeTeam && game.awayTeam) {
         return `${game.homeTeam} vs ${game.awayTeam}`;
       }
@@ -1012,6 +1124,58 @@
       const query = params.toString();
       const nextUrl = query ? `${window.location.pathname}?${query}` : window.location.pathname;
       window.history.replaceState({}, "", nextUrl);
+    }
+
+    function saveFavoriteFilters() {
+      const favorite = {
+        league: state.filters.league,
+        team: state.filters.team,
+        location: state.filters.location,
+        range: state.filters.range
+      };
+
+      window.localStorage.setItem(FAVORITE_FILTER_KEY, JSON.stringify(favorite));
+      document.cookie = `${FAVORITE_FILTER_KEY}=${encodeURIComponent(JSON.stringify(favorite))}; max-age=31536000; path=/; samesite=lax`;
+      updateFavoriteButton(true);
+    }
+
+    function getFavoriteFilters() {
+      try {
+        const storedValue = window.localStorage.getItem(FAVORITE_FILTER_KEY) || getCookie(FAVORITE_FILTER_KEY) || "{}";
+        const stored = JSON.parse(storedValue);
+        return pickKnownFilters(stored);
+      } catch (error) {
+        return {};
+      }
+    }
+
+    function updateFavoriteButton(justSaved = false) {
+      const hasFavorite = Boolean(window.localStorage.getItem(FAVORITE_FILTER_KEY) || getCookie(FAVORITE_FILTER_KEY));
+      elements.saveFavorite.classList.toggle("active", hasFavorite || justSaved);
+      elements.saveFavorite.textContent = justSaved ? "Saved" : "Save Favourite";
+
+      if (justSaved) {
+        window.setTimeout(() => {
+          elements.saveFavorite.textContent = "Save Favourite";
+        }, 1400);
+      }
+    }
+
+    function getCookie(name) {
+      return document.cookie
+        .split("; ")
+        .find((part) => part.startsWith(`${name}=`))
+        ?.split("=")
+        .slice(1)
+        .join("=") || "";
+    }
+
+    function getLeagueClass(league) {
+      const value = normalize(league).replace(/\s+/g, "-");
+      if (value === "monday") return "league-monday";
+      if (value === "wed-comp") return "league-wed-comp";
+      if (value === "wed-uber") return "league-wed-uber";
+      return "";
     }
 
     function normalize(value) {

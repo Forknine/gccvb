@@ -78,6 +78,7 @@ export function normalizeScheduleRow(row, rowNumber) {
       time,
       startTimestamp,
       teams,
+      displayTeams: buildDisplayTeams(teamParts.homeTeam, teamParts.awayTeam, league, teams),
       homeTeam: teamParts.homeTeam,
       awayTeam: teamParts.awayTeam,
       location,
@@ -273,6 +274,19 @@ function normalizeLeagueName(value) {
 
 function stripLeaguePrefix(value) {
   return cleanText(value).replace(/^(Monday|Wednesday|Wed Comp|Wed Uber)\s+/i, "");
+}
+
+function buildDisplayTeams(homeTeam, awayTeam, league, fallback) {
+  if (!homeTeam || !awayTeam) {
+    return cleanText(fallback);
+  }
+
+  const prefix = league || deriveLeague(fallback, cleanText(fallback).split(/\s+vs\.?\s+/i));
+  if (!prefix) {
+    return `${homeTeam} vs ${awayTeam}`;
+  }
+
+  return `${prefix} ${homeTeam} vs ${awayTeam}`;
 }
 
 function getStatus(results, startTimestamp) {
