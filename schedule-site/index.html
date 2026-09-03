@@ -204,6 +204,11 @@
       color: var(--schedule-accent-dark);
     }
 
+    .calendar-link {
+      text-align: center;
+      text-decoration: none;
+    }
+
     .state {
       padding: 22px;
       border: 1px solid var(--schedule-border);
@@ -485,13 +490,15 @@
 
       .filters .collapsible-filter,
       .filters #clearFilters,
-      .filters #saveFavorite {
+      .filters #saveFavorite,
+      .filters #calendarLink {
         grid-column: 1 / -1;
       }
 
       .filters:not(.expanded) .collapsible-filter,
       .filters:not(.expanded) #clearFilters,
-      .filters:not(.expanded) #saveFavorite {
+      .filters:not(.expanded) #saveFavorite,
+      .filters:not(.expanded) #calendarLink {
         display: none;
       }
 
@@ -634,6 +641,7 @@
 
         <button class="button secondary" id="clearFilters" type="button">Clear</button>
         <button class="button subtle collapsible-filter" id="saveFavorite" type="button">Save Favourite</button>
+        <a class="button secondary calendar-link hidden" id="calendarLink" href="#" target="_blank" rel="noopener noreferrer">Add Calendar</a>
         <div class="filter-summary" id="filterSummary" aria-live="polite"></div>
       </form>
 
@@ -693,6 +701,7 @@
       divisionField: document.getElementById("divisionField"),
       clearFilters: document.getElementById("clearFilters"),
       saveFavorite: document.getElementById("saveFavorite"),
+      calendarLink: document.getElementById("calendarLink"),
       filterSummary: document.getElementById("filterSummary"),
       clearEmpty: document.getElementById("clearEmpty"),
       retry: document.getElementById("retry"),
@@ -813,6 +822,7 @@
 
       render();
       updateFilterSummary();
+      updateCalendarLink();
 
       if (announce) {
         syncFilterUrl();
@@ -1272,6 +1282,26 @@
       ].filter(Boolean);
 
       return parts.length > 0 ? parts : ["Upcoming"];
+    }
+
+    function updateCalendarLink() {
+      if (!state.filters.team) {
+        elements.calendarLink.classList.add("hidden");
+        elements.calendarLink.removeAttribute("href");
+        return;
+      }
+
+      const params = new URLSearchParams();
+      params.set("team", state.filters.team);
+
+      if (state.filters.league) {
+        params.set("league", state.filters.league);
+      }
+
+      const path = `www.gccvb.org/_functions/calendar?${params.toString()}`;
+      elements.calendarLink.href = `webcal://${path}`;
+      elements.calendarLink.classList.remove("hidden");
+      elements.calendarLink.title = `Subscribe to ${state.filters.team} games`;
     }
 
     function getRangeLabel(range) {

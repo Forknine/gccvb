@@ -9,6 +9,6 @@
     "postinstall": "wix sync-types",
     "dev": "wix dev",
     "lint": "eslint .",
-    "test": "node tests/schedule-normalizer.test.mjs"
+    "test": "node tests/schedule-normalizer.test.mjs && node tests/schedule-calendar.test.mjs"
   }
 }
