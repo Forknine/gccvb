@@ -1,87 +1,98 @@
-// Velo API Reference: https://www.wix.com/velo/reference/api-overview/introduction
-	import wixLocationFrontend from 'wix-location-frontend';
-	import wixWindowFrontend from "wix-window-frontend";
-	import { getValuesWrapper } from "backend/googlesheet-wrapper.jsw";
-	//import { CreateTable } from "backend/schedule-table.jsw";
-	
+import wixLocationFrontend from "wix-location-frontend";
+import { getScheduleData } from "backend/schedule-service.jsw";
 
-var master = [];
-var tabledisplay;
-var originalData = [];
-const map = {
-	CCVI: "https://maps.app.goo.gl/G8E9VRqNi6DW1R6P7",
-	Westminster: "https://maps.app.goo.gl/QC7LCK6qfnzfjkes5",
-	"John Galt": "https://maps.app.goo.gl/LK87LccbSFKwDb9e7",
-	Rickson: "https://maps.app.goo.gl/LK87LccbSFKwDb9e7",
-  "King George": "https://maps.app.goo.gl/RCeziLar6wnT2Df99"
-}
- 
+const SCHEDULE_COMPONENT_ID = "#scheduleApp";
+let scheduleComponent;
+let scheduleDataPromise;
+let hasSentSchedule = false;
+
 $w.onReady(function () {
-	if (wixWindowFrontend.formFactor === "Mobile") {
-  $w("#mobileschedule").show();
-  $w('#button1').show();
-}
- getValuesFromSheet();
-//$w('#table3').updateRow( 0 , objarray);
-//tablemaker();
-console.log($w('#mobileschedule'));
-$w('#Section1Regular').onDblClick(event => {console.log($w('#mobileschedule'));});
+  try {
+    scheduleComponent = $w(SCHEDULE_COMPONENT_ID);
+  } catch (error) {
+    console.error(`Add an HTML Component with ID ${SCHEDULE_COMPONENT_ID} to use the responsive schedule.`, error);
+    return;
+  }
 
+  scheduleComponent.onMessage(handleScheduleMessage);
+  sendLoadingState();
+});
 
+function handleScheduleMessage(event) {
+  const message = event.data || {};
 
-async function getValuesFromSheet() {
-  try {   
-    master = (await getValuesWrapper("Schedule!A1:G350"));
-    master.shift();
+  if (message.type === "schedule:ready") {
+    loadAndSendSchedule();
+    return;
+  }
 
-    master.forEach((index, count) => {
-      // Check if the row is blank by verifying all elements
-      if (index.every(cell => cell === undefined || cell === null || cell === "")) {
-        return; // Skip this iteration for blank rows
-      }
+  if (message.type === "schedule:retry") {
+    hasSentSchedule = false;
+    scheduleDataPromise = null;
+    sendLoadingState();
+    loadAndSendSchedule();
+    return;
+  }
 
-      const x = String(index[4]);
-      const result = x.split(",");
-      
-      const locations = "<a style='color: blue; text-decoration: underline;' href='" + map[index[3]] + "'>" + index[3] + "</a>";
-      
-      let objarray = {
-        date: index[0],
-        time: index[1],
-        teams: index[2],
-        location: locations,
-        results: ""
-      };
-
-      if (index[4] !== undefined) {
-        result.forEach(color => {
-          objarray.results += `<a style='color:${color}; font-size: 20px;'>✘</a>`;
-        });
-      }
-      
-      $w('#table3').updateRow(count, objarray);
-    });
-
-    originalData = $w('#table3').rows;
-  } catch (err) {
-    // Handle error (e.g., log or display a message)
-    console.error(err);
+  if (message.type === "schedule:filtersChanged") {
+    syncFilterQuery(message.filters || {});
   }
 }
 
-	$w('#button1').onClick(function (a) {
-		wixLocationFrontend.to(($w('#dropdown1').value));
-		
-	})
-	$w('#button2').onClick(function () {
-		
-		const choice = $w('#dropdown1').value.toLowerCase().slice(1).split("-");
-			 
-			 var filteredData = originalData.filter(item => { return Object.values(item).some(value => value.toString().toLowerCase().includes(choice[0]));});
-			 filteredData = filteredData.filter(item => { return Object.values(item).some(value => value.toString().toLowerCase().includes(choice[1]));});
-			 console.log(filteredData);
-			 $w('#table3').rows = filteredData;
+async function loadAndSendSchedule() {
+  if (hasSentSchedule) {
+    return;
+  }
 
-	});
-	
-});
+  try {
+    scheduleDataPromise = scheduleDataPromise || getScheduleData();
+    const schedule = await scheduleDataPromise;
+    hasSentSchedule = true;
+
+    scheduleComponent.postMessage({
+      type: "schedule:data",
+      games: schedule.games,
+      filters: getFiltersFromQuery()
+    });
+  } catch (error) {
+    console.error("Schedule load failed:", error);
+    scheduleComponent.postMessage({ type: "schedule:error" });
+  }
+}
+
+function sendLoadingState() {
+  if (scheduleComponent) {
+    scheduleComponent.postMessage({ type: "schedule:loading" });
+  }
+}
+
+function getFiltersFromQuery() {
+  const query = wixLocationFrontend.query || {};
+
+  return {
+    search: query.search || "",
+    team: query.team || "",
+    location: query.location || "",
+    league: query.league || "",
+    division: query.division || "",
+    range: query.range || "upcoming"
+  };
+}
+
+function syncFilterQuery(filters) {
+  const nextQuery = {};
+  const removeKeys = ["search", "team", "location", "league", "division", "range"];
+
+  removeKeys.forEach((key) => {
+    const value = filters[key];
+    if (value && !(key === "range" && value === "upcoming")) {
+      nextQuery[key] = value;
+    }
+  });
+
+  wixLocationFrontend.queryParams.remove(removeKeys);
+
+  if (Object.keys(nextQuery).length > 0) {
+    wixLocationFrontend.queryParams.add(nextQuery);
+  }
+}
