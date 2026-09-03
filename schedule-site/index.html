@@ -209,6 +209,72 @@
       text-decoration: none;
     }
 
+    .calendar-help-toggle {
+      border-color: var(--schedule-border-strong);
+    }
+
+    .calendar-help {
+      grid-column: 1 / -1;
+      padding: 12px;
+      border: 1px solid var(--schedule-border);
+      border-radius: var(--schedule-radius);
+      background: linear-gradient(180deg, #fff, #f8fbfd);
+      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.8);
+    }
+
+    .calendar-help h2 {
+      margin: 0 0 8px;
+      font-size: 16px;
+      line-height: 1.25;
+    }
+
+    .calendar-help-grid {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 10px;
+    }
+
+    .calendar-help-card {
+      padding: 10px;
+      border: 1px solid var(--schedule-border);
+      border-radius: 6px;
+      background: #fff;
+    }
+
+    .calendar-help-card strong {
+      display: block;
+      margin-bottom: 5px;
+      font-size: 14px;
+    }
+
+    .calendar-help-card p {
+      margin: 0;
+      color: var(--schedule-muted);
+      font-size: 13px;
+      line-height: 1.35;
+    }
+
+    .calendar-copy-row {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+      margin-top: 10px;
+    }
+
+    .calendar-feed-url {
+      flex: 1;
+      min-width: 0;
+      padding: 8px 9px;
+      border: 1px solid var(--schedule-border);
+      border-radius: 6px;
+      background: var(--schedule-surface-soft);
+      color: var(--schedule-text);
+      font-size: 13px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
     .state {
       padding: 22px;
       border: 1px solid var(--schedule-border);
@@ -491,15 +557,28 @@
       .filters .collapsible-filter,
       .filters #clearFilters,
       .filters #saveFavorite,
-      .filters #calendarLink {
+      .filters #calendarLink,
+      .filters #calendarHelpToggle,
+      .calendar-help {
         grid-column: 1 / -1;
       }
 
       .filters:not(.expanded) .collapsible-filter,
       .filters:not(.expanded) #clearFilters,
       .filters:not(.expanded) #saveFavorite,
-      .filters:not(.expanded) #calendarLink {
+      .filters:not(.expanded) #calendarLink,
+      .filters:not(.expanded) #calendarHelpToggle,
+      .filters:not(.expanded) .calendar-help {
         display: none;
+      }
+
+      .calendar-help-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .calendar-copy-row {
+        align-items: stretch;
+        flex-direction: column;
       }
 
       .schedule-header {
@@ -642,6 +721,28 @@
         <button class="button secondary" id="clearFilters" type="button">Clear</button>
         <button class="button subtle collapsible-filter" id="saveFavorite" type="button">Save Favourite</button>
         <a class="button secondary calendar-link hidden" id="calendarLink" href="#" target="_blank" rel="noopener noreferrer">Add Calendar</a>
+        <button class="button subtle calendar-help-toggle hidden" id="calendarHelpToggle" type="button" aria-expanded="false" aria-controls="calendarHelp">Calendar Help</button>
+        <section class="calendar-help hidden" id="calendarHelp" aria-label="Calendar instructions">
+          <h2>Add this team to your calendar</h2>
+          <div class="calendar-help-grid">
+            <div class="calendar-help-card">
+              <strong>Google Calendar</strong>
+              <p>Copy the feed URL, open Google Calendar settings, choose Add calendar, then From URL.</p>
+            </div>
+            <div class="calendar-help-card">
+              <strong>Apple Calendar</strong>
+              <p>Use Add Calendar, choose Add Subscription Calendar, then paste the feed URL.</p>
+            </div>
+            <div class="calendar-help-card">
+              <strong>Outlook</strong>
+              <p>Use Add calendar, choose Subscribe from web, then paste the feed URL.</p>
+            </div>
+          </div>
+          <div class="calendar-copy-row">
+            <div class="calendar-feed-url" id="calendarFeedUrl"></div>
+            <button class="button secondary" id="copyCalendarUrl" type="button">Copy URL</button>
+          </div>
+        </section>
         <div class="filter-summary" id="filterSummary" aria-live="polite"></div>
       </form>
 
@@ -702,6 +803,10 @@
       clearFilters: document.getElementById("clearFilters"),
       saveFavorite: document.getElementById("saveFavorite"),
       calendarLink: document.getElementById("calendarLink"),
+      calendarHelpToggle: document.getElementById("calendarHelpToggle"),
+      calendarHelp: document.getElementById("calendarHelp"),
+      calendarFeedUrl: document.getElementById("calendarFeedUrl"),
+      copyCalendarUrl: document.getElementById("copyCalendarUrl"),
       filterSummary: document.getElementById("filterSummary"),
       clearEmpty: document.getElementById("clearEmpty"),
       retry: document.getElementById("retry"),
@@ -723,6 +828,8 @@
     elements.retry.addEventListener("click", loadSchedule);
     elements.filterToggle.addEventListener("click", toggleFilters);
     elements.saveFavorite.addEventListener("click", saveFavoriteFilters);
+    elements.calendarHelpToggle.addEventListener("click", toggleCalendarHelp);
+    elements.copyCalendarUrl.addEventListener("click", copyCalendarUrl);
 
     loadSchedule();
 
@@ -1287,7 +1394,11 @@
     function updateCalendarLink() {
       if (!state.filters.team) {
         elements.calendarLink.classList.add("hidden");
+        elements.calendarHelpToggle.classList.add("hidden");
+        elements.calendarHelp.classList.add("hidden");
+        elements.calendarHelpToggle.setAttribute("aria-expanded", "false");
         elements.calendarLink.removeAttribute("href");
+        elements.calendarFeedUrl.textContent = "";
         return;
       }
 
@@ -1300,8 +1411,33 @@
 
       const path = `www.gccvb.org/_functions/calendar?${params.toString()}`;
       elements.calendarLink.href = `webcal://${path}`;
+      elements.calendarFeedUrl.textContent = `https://${path}`;
       elements.calendarLink.classList.remove("hidden");
+      elements.calendarHelpToggle.classList.remove("hidden");
       elements.calendarLink.title = `Subscribe to ${state.filters.team} games`;
+    }
+
+    function toggleCalendarHelp() {
+      const isExpanded = elements.calendarHelp.classList.toggle("hidden") === false;
+      elements.calendarHelpToggle.setAttribute("aria-expanded", String(isExpanded));
+      elements.calendarHelpToggle.textContent = isExpanded ? "Hide Help" : "Calendar Help";
+    }
+
+    async function copyCalendarUrl() {
+      const url = elements.calendarFeedUrl.textContent;
+      if (!url) {
+        return;
+      }
+
+      try {
+        await navigator.clipboard.writeText(url);
+        elements.copyCalendarUrl.textContent = "Copied";
+        window.setTimeout(() => {
+          elements.copyCalendarUrl.textContent = "Copy URL";
+        }, 1400);
+      } catch (error) {
+        console.warn("Unable to copy calendar URL.", error);
+      }
     }
 
     function getRangeLabel(range) {
