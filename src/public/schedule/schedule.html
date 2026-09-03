@@ -89,6 +89,10 @@
       box-shadow: var(--schedule-shadow);
     }
 
+    .filter-toggle {
+      display: none;
+    }
+
     .field {
       min-width: 0;
     }
@@ -341,11 +345,35 @@
       }
 
       .filters {
-        grid-template-columns: 1fr;
+        grid-template-columns: 1fr auto;
         padding: 12px;
         position: sticky;
         top: 0;
         z-index: 2;
+      }
+
+      .filter-toggle {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        align-self: end;
+        width: 44px;
+        min-width: 44px;
+        padding: 0;
+      }
+
+      .filters .field:first-child {
+        grid-column: 1;
+      }
+
+      .filters .collapsible-filter,
+      .filters #clearFilters {
+        grid-column: 1 / -1;
+      }
+
+      .filters:not(.expanded) .collapsible-filter,
+      .filters:not(.expanded) #clearFilters {
+        display: none;
       }
 
       .schedule-header {
@@ -384,35 +412,37 @@
           <input id="search" name="search" type="search" autocomplete="off" placeholder="Team or location">
         </div>
 
-        <div class="field">
+        <button class="button secondary filter-toggle" id="filterToggle" type="button" aria-controls="filters" aria-expanded="false" title="Show filters">Filter</button>
+
+        <div class="field collapsible-filter">
           <label for="team">Team</label>
           <select id="team" name="team">
             <option value="">All Teams</option>
           </select>
         </div>
 
-        <div class="field">
+        <div class="field collapsible-filter">
           <label for="location">Location</label>
           <select id="location" name="location">
             <option value="">All Locations</option>
           </select>
         </div>
 
-        <div class="field hidden" id="leagueField">
+        <div class="field collapsible-filter hidden" id="leagueField">
           <label for="league">League</label>
           <select id="league" name="league">
             <option value="">All Leagues</option>
           </select>
         </div>
 
-        <div class="field hidden" id="divisionField">
+        <div class="field collapsible-filter hidden" id="divisionField">
           <label for="division">Division</label>
           <select id="division" name="division">
             <option value="">All Divisions</option>
           </select>
         </div>
 
-        <div class="field">
+        <div class="field collapsible-filter">
           <label for="range">Date Range</label>
           <select id="range" name="range">
             <option value="upcoming">Upcoming</option>
@@ -478,6 +508,7 @@
       league: document.getElementById("league"),
       division: document.getElementById("division"),
       range: document.getElementById("range"),
+      filterToggle: document.getElementById("filterToggle"),
       leagueField: document.getElementById("leagueField"),
       divisionField: document.getElementById("divisionField"),
       clearFilters: document.getElementById("clearFilters"),
@@ -501,6 +532,7 @@
     elements.clearFilters.addEventListener("click", clearFilters);
     elements.clearEmpty.addEventListener("click", clearFilters);
     elements.retry.addEventListener("click", () => sendToParent({ type: "schedule:retry" }));
+    elements.filterToggle.addEventListener("click", toggleFilters);
 
     sendToParent({ type: "schedule:ready" });
 
@@ -819,7 +851,14 @@
         if (game.awayTeam) values.add(game.awayTeam);
       });
 
-      return Array.from(values).sort((first, second) => first.localeCompare(second));
+      return Array.from(values).sort(compareTeamOptions);
+    }
+
+    function toggleFilters() {
+      const isExpanded = elements.filters.classList.toggle("expanded");
+      elements.filterToggle.setAttribute("aria-expanded", String(isExpanded));
+      elements.filterToggle.textContent = isExpanded ? "Hide" : "Filter";
+      elements.filterToggle.title = isExpanded ? "Hide filters" : "Show filters";
     }
 
     function getUniqueValues(games, field) {
@@ -831,6 +870,22 @@
       });
 
       return Array.from(values).sort((first, second) => first.localeCompare(second));
+    }
+
+    function compareTeamOptions(first, second) {
+      const firstName = getTeamSortName(first);
+      const secondName = getTeamSortName(second);
+      const nameComparison = firstName.localeCompare(secondName);
+
+      if (nameComparison !== 0) {
+        return nameComparison;
+      }
+
+      return first.localeCompare(second);
+    }
+
+    function getTeamSortName(value) {
+      return String(value || "").replace(/^(Monday|Wednesday)\s+/i, "").trim();
     }
 
     function showState(name) {

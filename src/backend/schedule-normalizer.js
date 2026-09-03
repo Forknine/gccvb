@@ -46,13 +46,13 @@ export function normalizeScheduleRow(row, rowNumber) {
   const teams = cleanText(cells[2]);
   const location = cleanText(cells[3]);
   const results = normalizeResults(cells[4]);
-  const league = cleanText(cells[5]);
+  const teamParts = splitTeams(teams);
+  const league = cleanText(cells[5]) || teamParts.league;
   const division = cleanText(cells[6]);
   const parsedDate = parseDate(date);
   const parsedTime = parseTime(time);
   const dateISO = parsedDate ? DATE_FORMATTER.format(parsedDate) : "";
   const startTimestamp = parsedDate ? buildTimestamp(parsedDate, parsedTime) : null;
-  const teamParts = splitTeams(teams);
   const status = getStatus(results, startTimestamp);
 
   const missingRequired = [];
@@ -156,6 +156,11 @@ function parseDate(value) {
     return null;
   }
 
+  const isoParts = text.match(/^(\d{4})-(\d{1,2})-(\d{1,2})$/);
+  if (isoParts) {
+    return buildLocalDate(Number(isoParts[1]), Number(isoParts[2]), Number(isoParts[3]));
+  }
+
   const direct = new Date(text);
   if (!Number.isNaN(direct.getTime())) {
     return new Date(direct.getFullYear(), direct.getMonth(), direct.getDate());
@@ -166,12 +171,9 @@ function parseDate(value) {
     return null;
   }
 
-  const month = Number(parts[1]) - 1;
   const day = Number(parts[2]);
   const year = Number(parts[3].length === 2 ? `20${parts[3]}` : parts[3]);
-  const parsed = new Date(year, month, day);
-
-  return Number.isNaN(parsed.getTime()) ? null : parsed;
+  return buildLocalDate(year, Number(parts[1]), day);
 }
 
 function parseTime(value) {
@@ -209,22 +211,54 @@ function buildTimestamp(date, time) {
 
 function splitTeams(teams) {
   const parts = cleanText(teams).split(/\s+vs\.?\s+/i);
+  const league = extractLeague(teams);
 
   if (parts.length !== 2) {
     return {
       homeTeam: "",
-      awayTeam: ""
+      awayTeam: "",
+      league
     };
   }
 
   return {
-    homeTeam: stripLeaguePrefix(parts[0]),
-    awayTeam: stripLeaguePrefix(parts[1])
+    homeTeam: cleanText(parts[0]),
+    awayTeam: ensureLeaguePrefix(parts[1], league),
+    league
   };
 }
 
-function stripLeaguePrefix(value) {
-  return cleanText(value).replace(/^(Monday|Wednesday)\s+/i, "");
+function buildLocalDate(year, month, day) {
+  const parsed = new Date(year, month - 1, day);
+
+  if (
+    Number.isNaN(parsed.getTime()) ||
+    parsed.getFullYear() !== year ||
+    parsed.getMonth() !== month - 1 ||
+    parsed.getDate() !== day
+  ) {
+    return null;
+  }
+
+  return parsed;
+}
+
+function extractLeague(value) {
+  const match = cleanText(value).match(/^(Monday|Wednesday)\b/i);
+  if (!match) {
+    return "";
+  }
+
+  return match[1].charAt(0).toUpperCase() + match[1].slice(1).toLowerCase();
+}
+
+function ensureLeaguePrefix(team, league) {
+  const text = cleanText(team);
+  if (!league || new RegExp(`^${league}\\b`, "i").test(text)) {
+    return text;
+  }
+
+  return `${league} ${text}`;
 }
 
 function getStatus(results, startTimestamp) {
