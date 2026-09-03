@@ -206,7 +206,6 @@
 
     .calendar-link {
       text-align: center;
-      text-decoration: none;
     }
 
     .calendar-help-toggle {
@@ -720,7 +719,7 @@
 
         <button class="button secondary" id="clearFilters" type="button">Clear</button>
         <button class="button subtle collapsible-filter" id="saveFavorite" type="button">Save Favourite</button>
-        <a class="button secondary calendar-link hidden" id="calendarLink" href="#" target="_blank" rel="noopener noreferrer">Add Calendar</a>
+        <button class="button secondary calendar-link hidden" id="calendarLink" type="button">Add Team Calendar</button>
         <button class="button subtle calendar-help-toggle hidden" id="calendarHelpToggle" type="button" aria-expanded="false" aria-controls="calendarHelp">Calendar Help</button>
         <section class="calendar-help hidden" id="calendarHelp" aria-label="Calendar instructions">
           <h2>Add this team to your calendar</h2>
@@ -828,6 +827,7 @@
     elements.retry.addEventListener("click", loadSchedule);
     elements.filterToggle.addEventListener("click", toggleFilters);
     elements.saveFavorite.addEventListener("click", saveFavoriteFilters);
+    elements.calendarLink.addEventListener("click", showCalendarHelp);
     elements.calendarHelpToggle.addEventListener("click", toggleCalendarHelp);
     elements.copyCalendarUrl.addEventListener("click", copyCalendarUrl);
 
@@ -1397,7 +1397,6 @@
         elements.calendarHelpToggle.classList.add("hidden");
         elements.calendarHelp.classList.add("hidden");
         elements.calendarHelpToggle.setAttribute("aria-expanded", "false");
-        elements.calendarLink.removeAttribute("href");
         elements.calendarFeedUrl.textContent = "";
         return;
       }
@@ -1410,11 +1409,16 @@
       }
 
       const path = `www.gccvb.org/_functions/calendar?${params.toString()}`;
-      elements.calendarLink.href = `webcal://${path}`;
       elements.calendarFeedUrl.textContent = `https://${path}`;
       elements.calendarLink.classList.remove("hidden");
       elements.calendarHelpToggle.classList.remove("hidden");
       elements.calendarLink.title = `Subscribe to ${state.filters.team} games`;
+    }
+
+    function showCalendarHelp() {
+      elements.calendarHelp.classList.remove("hidden");
+      elements.calendarHelpToggle.setAttribute("aria-expanded", "true");
+      elements.calendarHelpToggle.textContent = "Hide Help";
     }
 
     function toggleCalendarHelp() {
