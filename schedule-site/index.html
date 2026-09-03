@@ -1,0 +1,977 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <style>
+    :root {
+      --schedule-bg: #f7f8fb;
+      --schedule-surface: #ffffff;
+      --schedule-surface-soft: #eef2f7;
+      --schedule-text: #172033;
+      --schedule-muted: #657287;
+      --schedule-border: #d9e0ea;
+      --schedule-accent: #0f766e;
+      --schedule-accent-dark: #115e59;
+      --schedule-danger: #b91c1c;
+      --schedule-radius: 8px;
+      --schedule-shadow: 0 10px 24px rgba(23, 32, 51, 0.08);
+      --schedule-focus: 0 0 0 3px rgba(15, 118, 110, 0.22);
+      color-scheme: light;
+      font-family: Arial, Helvetica, sans-serif;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    html,
+    body {
+      margin: 0;
+      min-width: 0;
+      background: var(--schedule-bg);
+      color: var(--schedule-text);
+    }
+
+    body {
+      font-size: 16px;
+      line-height: 1.45;
+    }
+
+    button,
+    input,
+    select {
+      font: inherit;
+    }
+
+    .schedule-app {
+      width: 100%;
+      min-height: 420px;
+      padding: 20px;
+    }
+
+    .schedule-shell {
+      width: min(1120px, 100%);
+      margin: 0 auto;
+    }
+
+    .schedule-topbar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      margin-bottom: 14px;
+    }
+
+    .schedule-title {
+      margin: 0;
+      font-size: 28px;
+      line-height: 1.15;
+      font-weight: 700;
+    }
+
+    .schedule-count {
+      color: var(--schedule-muted);
+      font-size: 14px;
+      white-space: nowrap;
+    }
+
+    .filters {
+      display: grid;
+      grid-template-columns: minmax(180px, 1.3fr) repeat(4, minmax(130px, 1fr)) auto;
+      gap: 10px;
+      align-items: end;
+      margin-bottom: 18px;
+      padding: 14px;
+      border: 1px solid var(--schedule-border);
+      border-radius: var(--schedule-radius);
+      background: var(--schedule-surface);
+      box-shadow: var(--schedule-shadow);
+    }
+
+    .filter-toggle {
+      display: none;
+    }
+
+    .field {
+      min-width: 0;
+    }
+
+    .field label {
+      display: block;
+      margin-bottom: 6px;
+      color: var(--schedule-muted);
+      font-size: 13px;
+      font-weight: 700;
+    }
+
+    .field input,
+    .field select {
+      width: 100%;
+      min-height: 44px;
+      padding: 9px 10px;
+      border: 1px solid var(--schedule-border);
+      border-radius: 6px;
+      background: #fff;
+      color: var(--schedule-text);
+    }
+
+    .field input:focus,
+    .field select:focus,
+    .button:focus {
+      outline: none;
+      box-shadow: var(--schedule-focus);
+      border-color: var(--schedule-accent);
+    }
+
+    .button {
+      min-height: 44px;
+      padding: 9px 14px;
+      border: 1px solid var(--schedule-accent);
+      border-radius: 6px;
+      background: var(--schedule-accent);
+      color: #fff;
+      font-weight: 700;
+      cursor: pointer;
+      transition: background-color 160ms ease, border-color 160ms ease;
+    }
+
+    .button:hover {
+      background: var(--schedule-accent-dark);
+      border-color: var(--schedule-accent-dark);
+    }
+
+    .button.secondary {
+      background: #fff;
+      color: var(--schedule-accent-dark);
+    }
+
+    .button.secondary:hover {
+      background: var(--schedule-surface-soft);
+    }
+
+    .state {
+      padding: 22px;
+      border: 1px solid var(--schedule-border);
+      border-radius: var(--schedule-radius);
+      background: var(--schedule-surface);
+      text-align: center;
+      box-shadow: var(--schedule-shadow);
+    }
+
+    .state strong {
+      display: block;
+      margin-bottom: 8px;
+      font-size: 18px;
+    }
+
+    .state p {
+      margin: 0 0 14px;
+      color: var(--schedule-muted);
+    }
+
+    .schedule-list {
+      display: grid;
+      gap: 16px;
+    }
+
+    .date-group {
+      border: 1px solid var(--schedule-border);
+      border-radius: var(--schedule-radius);
+      overflow: hidden;
+      background: var(--schedule-surface);
+      box-shadow: var(--schedule-shadow);
+    }
+
+    .date-heading {
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 13px 16px;
+      background: var(--schedule-surface-soft);
+      border-bottom: 1px solid var(--schedule-border);
+      font-weight: 700;
+    }
+
+    .date-heading time {
+      color: var(--schedule-muted);
+      font-size: 14px;
+      font-weight: 600;
+    }
+
+    .schedule-row,
+    .schedule-header {
+      display: grid;
+      grid-template-columns: 110px minmax(220px, 1.5fr) minmax(150px, 0.8fr) minmax(120px, 0.7fr);
+      gap: 14px;
+      align-items: center;
+      padding: 13px 16px;
+    }
+
+    .schedule-header {
+      color: var(--schedule-muted);
+      font-size: 12px;
+      font-weight: 700;
+      letter-spacing: 0;
+      text-transform: uppercase;
+      border-bottom: 1px solid var(--schedule-border);
+    }
+
+    .schedule-row + .schedule-row {
+      border-top: 1px solid var(--schedule-border);
+    }
+
+    .game-time {
+      font-weight: 700;
+      white-space: nowrap;
+    }
+
+    .game-teams {
+      min-width: 0;
+      font-weight: 700;
+      overflow-wrap: anywhere;
+    }
+
+    .game-meta {
+      margin-top: 3px;
+      color: var(--schedule-muted);
+      font-size: 13px;
+      overflow-wrap: anywhere;
+    }
+
+    .location-link {
+      color: var(--schedule-accent-dark);
+      font-weight: 700;
+      text-decoration: underline;
+      text-underline-offset: 3px;
+      overflow-wrap: anywhere;
+    }
+
+    .location-text {
+      overflow-wrap: anywhere;
+    }
+
+    .results {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      align-items: center;
+    }
+
+    .result-pill,
+    .status-pill {
+      display: inline-flex;
+      align-items: center;
+      min-height: 28px;
+      padding: 4px 8px;
+      border-radius: 999px;
+      background: var(--schedule-surface-soft);
+      color: var(--schedule-muted);
+      font-size: 13px;
+      font-weight: 700;
+    }
+
+    .result-pill {
+      border: 1px solid currentColor;
+      background: #fff;
+    }
+
+    .skeleton {
+      display: grid;
+      gap: 12px;
+      padding: 14px;
+      border: 1px solid var(--schedule-border);
+      border-radius: var(--schedule-radius);
+      background: var(--schedule-surface);
+      box-shadow: var(--schedule-shadow);
+    }
+
+    .skeleton-line {
+      height: 18px;
+      border-radius: 999px;
+      background: linear-gradient(90deg, #e6ebf2, #f5f7fa, #e6ebf2);
+      background-size: 220% 100%;
+      animation: shimmer 1200ms linear infinite;
+    }
+
+    .skeleton-line.short {
+      width: 34%;
+    }
+
+    .skeleton-line.medium {
+      width: 64%;
+    }
+
+    @keyframes shimmer {
+      from {
+        background-position: 220% 0;
+      }
+      to {
+        background-position: -220% 0;
+      }
+    }
+
+    .hidden {
+      display: none !important;
+    }
+
+    @media (max-width: 900px) {
+      .filters {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+
+      .filters .button {
+        width: 100%;
+      }
+    }
+
+    @media (max-width: 640px) {
+      .schedule-app {
+        padding: 14px;
+      }
+
+      .schedule-topbar {
+        align-items: flex-start;
+        flex-direction: column;
+        gap: 6px;
+      }
+
+      .schedule-title {
+        font-size: 24px;
+      }
+
+      .schedule-count {
+        white-space: normal;
+      }
+
+      .filters {
+        grid-template-columns: 1fr auto;
+        padding: 12px;
+        position: sticky;
+        top: 0;
+        z-index: 2;
+      }
+
+      .filter-toggle {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        align-self: end;
+        width: 44px;
+        min-width: 44px;
+        padding: 0;
+      }
+
+      .filters .field:first-child {
+        grid-column: 1;
+      }
+
+      .filters .collapsible-filter,
+      .filters #clearFilters {
+        grid-column: 1 / -1;
+      }
+
+      .filters:not(.expanded) .collapsible-filter,
+      .filters:not(.expanded) #clearFilters {
+        display: none;
+      }
+
+      .schedule-header {
+        display: none;
+      }
+
+      .schedule-row {
+        grid-template-columns: 1fr;
+        gap: 8px;
+        padding: 15px;
+      }
+
+      .date-heading {
+        align-items: flex-start;
+        flex-direction: column;
+        gap: 3px;
+      }
+
+      .game-time {
+        font-size: 19px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <main class="schedule-app" aria-live="polite">
+    <div class="schedule-shell">
+      <div class="schedule-topbar">
+        <h1 class="schedule-title">Schedule</h1>
+        <div class="schedule-count" id="scheduleCount">Loading games...</div>
+      </div>
+
+      <form class="filters" id="filters" aria-label="Schedule filters">
+        <div class="field">
+          <label for="search">Search</label>
+          <input id="search" name="search" type="search" autocomplete="off" placeholder="Team or location">
+        </div>
+
+        <button class="button secondary filter-toggle" id="filterToggle" type="button" aria-controls="filters" aria-expanded="false" title="Show filters">Filter</button>
+
+        <div class="field collapsible-filter">
+          <label for="team">Team</label>
+          <select id="team" name="team">
+            <option value="">All Teams</option>
+          </select>
+        </div>
+
+        <div class="field collapsible-filter">
+          <label for="location">Location</label>
+          <select id="location" name="location">
+            <option value="">All Locations</option>
+          </select>
+        </div>
+
+        <div class="field collapsible-filter hidden" id="leagueField">
+          <label for="league">League</label>
+          <select id="league" name="league">
+            <option value="">All Leagues</option>
+          </select>
+        </div>
+
+        <div class="field collapsible-filter hidden" id="divisionField">
+          <label for="division">Division</label>
+          <select id="division" name="division">
+            <option value="">All Divisions</option>
+          </select>
+        </div>
+
+        <div class="field collapsible-filter">
+          <label for="range">Date Range</label>
+          <select id="range" name="range">
+            <option value="upcoming">Upcoming</option>
+            <option value="today">Today</option>
+            <option value="week">This Week</option>
+            <option value="next7">Next 7 Days</option>
+            <option value="completed">Completed</option>
+            <option value="all">All Games</option>
+          </select>
+        </div>
+
+        <button class="button secondary" id="clearFilters" type="button">Clear</button>
+      </form>
+
+      <section id="loadingState" class="skeleton" aria-label="Loading schedule">
+        <div class="skeleton-line short"></div>
+        <div class="skeleton-line medium"></div>
+        <div class="skeleton-line"></div>
+        <div class="skeleton-line medium"></div>
+      </section>
+
+      <section id="errorState" class="state hidden">
+        <strong>Unable to load the schedule.</strong>
+        <p>Please try again.</p>
+        <button class="button" id="retry" type="button">Retry</button>
+      </section>
+
+      <section id="emptyState" class="state hidden">
+        <strong>No games match your filters.</strong>
+        <p>Try a different team, location, date range, or search.</p>
+        <button class="button secondary" id="clearEmpty" type="button">Clear Filters</button>
+      </section>
+
+      <section id="noDataState" class="state hidden">
+        <strong>No schedule games are available.</strong>
+        <p>Please check back soon.</p>
+      </section>
+
+      <section id="scheduleList" class="schedule-list hidden" aria-label="Games"></section>
+    </div>
+  </main>
+
+  <script>
+    const state = {
+      games: [],
+      filtered: [],
+      filters: {
+        search: "",
+        team: "",
+        location: "",
+        league: "",
+        division: "",
+        range: "upcoming"
+      },
+      debounceId: null
+    };
+
+    const elements = {
+      filters: document.getElementById("filters"),
+      search: document.getElementById("search"),
+      team: document.getElementById("team"),
+      location: document.getElementById("location"),
+      league: document.getElementById("league"),
+      division: document.getElementById("division"),
+      range: document.getElementById("range"),
+      filterToggle: document.getElementById("filterToggle"),
+      leagueField: document.getElementById("leagueField"),
+      divisionField: document.getElementById("divisionField"),
+      clearFilters: document.getElementById("clearFilters"),
+      clearEmpty: document.getElementById("clearEmpty"),
+      retry: document.getElementById("retry"),
+      loadingState: document.getElementById("loadingState"),
+      errorState: document.getElementById("errorState"),
+      emptyState: document.getElementById("emptyState"),
+      noDataState: document.getElementById("noDataState"),
+      scheduleList: document.getElementById("scheduleList"),
+      scheduleCount: document.getElementById("scheduleCount")
+    };
+
+    const SCHEDULE_API_URL = "https://www.gccvb.org/_functions/schedule";
+
+    elements.filters.addEventListener("change", handleFilterChange);
+    elements.search.addEventListener("input", handleSearchInput);
+    elements.clearFilters.addEventListener("click", clearFilters);
+    elements.clearEmpty.addEventListener("click", clearFilters);
+    elements.retry.addEventListener("click", loadSchedule);
+    elements.filterToggle.addEventListener("click", toggleFilters);
+
+    loadSchedule();
+
+    async function loadSchedule() {
+      showState("loading");
+      elements.scheduleCount.textContent = "Loading games...";
+
+      try {
+        const response = await fetch(SCHEDULE_API_URL, {
+          headers: {
+            accept: "application/json"
+          }
+        });
+
+        if (!response.ok) {
+          throw new Error(`Schedule API failed with ${response.status}`);
+        }
+
+        const schedule = await response.json();
+        state.games = Array.isArray(schedule.games) ? schedule.games : [];
+        state.filters = {
+          ...state.filters,
+          ...pickKnownFilters(getFiltersFromUrl())
+        };
+
+        hydrateControls();
+        applyFilters(false);
+      } catch (error) {
+        console.error("Schedule load failed:", error);
+        showState("error");
+      }
+    }
+
+    function hydrateControls() {
+      populateSelect(elements.team, getOptionsFromTeams(state.games), "All Teams");
+      populateSelect(elements.location, getUniqueValues(state.games, "location"), "All Locations");
+
+      const leagues = getUniqueValues(state.games, "league");
+      const divisions = getUniqueValues(state.games, "division");
+
+      populateSelect(elements.league, leagues, "All Leagues");
+      populateSelect(elements.division, divisions, "All Divisions");
+      elements.leagueField.classList.toggle("hidden", leagues.length === 0);
+      elements.divisionField.classList.toggle("hidden", divisions.length === 0);
+
+      Object.entries(state.filters).forEach(([key, value]) => {
+        if (elements[key]) {
+          elements[key].value = value;
+        }
+      });
+    }
+
+    function handleFilterChange(event) {
+      if (!event.target.name) {
+        return;
+      }
+
+      state.filters[event.target.name] = event.target.value;
+      applyFilters(true);
+    }
+
+    function handleSearchInput(event) {
+      window.clearTimeout(state.debounceId);
+      state.filters.search = event.target.value;
+      state.debounceId = window.setTimeout(() => applyFilters(true), 180);
+    }
+
+    function clearFilters() {
+      state.filters = {
+        search: "",
+        team: "",
+        location: "",
+        league: "",
+        division: "",
+        range: "upcoming"
+      };
+      hydrateControls();
+      applyFilters(true);
+    }
+
+    function applyFilters(announce) {
+      state.filtered = state.games.filter((game) => {
+        return matchesSearch(game)
+          && matchesField(game, "location")
+          && matchesField(game, "league")
+          && matchesField(game, "division")
+          && matchesTeam(game)
+          && matchesRange(game);
+      });
+
+      render();
+
+      if (announce) {
+        syncFilterUrl();
+      }
+    }
+
+    function matchesSearch(game) {
+      const search = normalize(state.filters.search);
+      if (!search) {
+        return true;
+      }
+
+      return [
+        game.teams,
+        game.homeTeam,
+        game.awayTeam,
+        game.location,
+        game.league,
+        game.division
+      ].some((value) => normalize(value).includes(search));
+    }
+
+    function matchesField(game, field) {
+      const expected = normalize(state.filters[field]);
+      return !expected || normalize(game[field]) === expected;
+    }
+
+    function matchesTeam(game) {
+      const expected = normalize(state.filters.team);
+      if (!expected) {
+        return true;
+      }
+
+      return normalize(game.homeTeam) === expected
+        || normalize(game.awayTeam) === expected
+        || normalize(game.teams).includes(expected);
+    }
+
+    function matchesRange(game) {
+      const range = state.filters.range;
+      const start = Number(game.startTimestamp);
+      const now = new Date();
+      const todayStart = startOfDay(now).getTime();
+      const tomorrowStart = todayStart + dayMs();
+      const nextDayStart = tomorrowStart + dayMs();
+      const weekEnd = todayStart + (7 - now.getDay()) * dayMs();
+      const nextSevenEnd = todayStart + 7 * dayMs();
+
+      if (range === "all" || !start) {
+        return true;
+      }
+      if (range === "today") {
+        return start >= todayStart && start < tomorrowStart;
+      }
+      if (range === "week") {
+        return start >= todayStart && start < weekEnd;
+      }
+      if (range === "next7") {
+        return start >= todayStart && start < nextSevenEnd;
+      }
+      if (range === "completed") {
+        return game.status === "completed" || start < todayStart;
+      }
+
+      return start >= todayStart || game.status === "upcoming";
+    }
+
+    function render() {
+      elements.scheduleList.textContent = "";
+
+      if (state.games.length === 0) {
+        elements.scheduleCount.textContent = "0 games";
+        showState("nodata");
+        return;
+      }
+
+      if (state.filtered.length === 0) {
+        elements.scheduleCount.textContent = `0 of ${state.games.length} games`;
+        showState("empty");
+        return;
+      }
+
+      elements.scheduleCount.textContent = `${state.filtered.length} of ${state.games.length} games`;
+      elements.scheduleList.appendChild(renderGroups(groupByDate(state.filtered)));
+      showState("list");
+    }
+
+    function renderGroups(groups) {
+      const fragment = document.createDocumentFragment();
+
+      groups.forEach((group) => {
+        const section = document.createElement("article");
+        section.className = "date-group";
+
+        const heading = document.createElement("div");
+        heading.className = "date-heading";
+
+        const label = document.createElement("span");
+        label.textContent = getFriendlyDate(group.dateISO, group.fallbackDate);
+
+        const exact = document.createElement("time");
+        exact.dateTime = group.dateISO || "";
+        exact.textContent = group.dateISO || group.fallbackDate;
+
+        heading.append(label, exact);
+        section.appendChild(heading);
+
+        const header = document.createElement("div");
+        header.className = "schedule-header";
+        ["Time", "Matchup", "Location", "Result / Status"].forEach((text) => {
+          const cell = document.createElement("div");
+          cell.textContent = text;
+          header.appendChild(cell);
+        });
+        section.appendChild(header);
+
+        group.games.forEach((game) => {
+          section.appendChild(renderGame(game));
+        });
+
+        fragment.appendChild(section);
+      });
+
+      return fragment;
+    }
+
+    function renderGame(game) {
+      const row = document.createElement("div");
+      row.className = "schedule-row";
+
+      const time = document.createElement("div");
+      time.className = "game-time";
+      time.textContent = game.time || "Time TBD";
+
+      const matchup = document.createElement("div");
+      const teams = document.createElement("div");
+      teams.className = "game-teams";
+      teams.textContent = game.teams || "Teams TBD";
+      matchup.appendChild(teams);
+
+      const metaText = [game.league, game.division].filter(Boolean).join(" / ");
+      if (metaText) {
+        const meta = document.createElement("div");
+        meta.className = "game-meta";
+        meta.textContent = metaText;
+        matchup.appendChild(meta);
+      }
+
+      const location = document.createElement("div");
+      if (game.location && game.mapUrl) {
+        const link = document.createElement("a");
+        link.className = "location-link";
+        link.href = game.mapUrl;
+        link.target = "_blank";
+        link.rel = "noopener noreferrer";
+        link.textContent = game.location;
+        location.appendChild(link);
+      } else {
+        const text = document.createElement("span");
+        text.className = "location-text";
+        text.textContent = game.location || "Location TBD";
+        location.appendChild(text);
+      }
+
+      const results = document.createElement("div");
+      results.className = "results";
+      renderResults(game).forEach((node) => results.appendChild(node));
+
+      row.append(time, matchup, location, results);
+      return row;
+    }
+
+    function renderResults(game) {
+      if (Array.isArray(game.results) && game.results.length > 0) {
+        return game.results.map((result) => {
+          const pill = document.createElement("span");
+          pill.className = "result-pill";
+          if (result.color) {
+            pill.style.color = result.color;
+          }
+          pill.textContent = result.label;
+          pill.title = `${result.label} result`;
+          return pill;
+        });
+      }
+
+      const status = document.createElement("span");
+      status.className = "status-pill";
+      status.textContent = getStatusLabel(game.status);
+      return [status];
+    }
+
+    function groupByDate(games) {
+      const map = new Map();
+
+      games.forEach((game) => {
+        const key = game.dateISO || game.date || "Date TBD";
+        if (!map.has(key)) {
+          map.set(key, {
+            dateISO: game.dateISO,
+            fallbackDate: game.date || "Date TBD",
+            games: []
+          });
+        }
+        map.get(key).games.push(game);
+      });
+
+      return Array.from(map.values());
+    }
+
+    function populateSelect(select, values, defaultLabel) {
+      const current = select.value;
+      select.textContent = "";
+      select.appendChild(new Option(defaultLabel, ""));
+      values.forEach((value) => select.appendChild(new Option(value, value)));
+
+      if (values.includes(current) || current === "") {
+        select.value = current;
+      }
+    }
+
+    function getOptionsFromTeams(games) {
+      const values = new Set();
+      games.forEach((game) => {
+        if (game.homeTeam) values.add(game.homeTeam);
+        if (game.awayTeam) values.add(game.awayTeam);
+      });
+
+      return Array.from(values).sort(compareTeamOptions);
+    }
+
+    function toggleFilters() {
+      const isExpanded = elements.filters.classList.toggle("expanded");
+      elements.filterToggle.setAttribute("aria-expanded", String(isExpanded));
+      elements.filterToggle.textContent = isExpanded ? "Hide" : "Filter";
+      elements.filterToggle.title = isExpanded ? "Hide filters" : "Show filters";
+    }
+
+    function getUniqueValues(games, field) {
+      const values = new Set();
+      games.forEach((game) => {
+        if (game[field]) {
+          values.add(game[field]);
+        }
+      });
+
+      return Array.from(values).sort((first, second) => first.localeCompare(second));
+    }
+
+    function compareTeamOptions(first, second) {
+      const firstName = getTeamSortName(first);
+      const secondName = getTeamSortName(second);
+      const nameComparison = firstName.localeCompare(secondName);
+
+      if (nameComparison !== 0) {
+        return nameComparison;
+      }
+
+      return first.localeCompare(second);
+    }
+
+    function getTeamSortName(value) {
+      return String(value || "").replace(/^(Monday|Wednesday)\s+/i, "").trim();
+    }
+
+    function showState(name) {
+      elements.loadingState.classList.toggle("hidden", name !== "loading");
+      elements.errorState.classList.toggle("hidden", name !== "error");
+      elements.emptyState.classList.toggle("hidden", name !== "empty");
+      elements.noDataState.classList.toggle("hidden", name !== "nodata");
+      elements.scheduleList.classList.toggle("hidden", name !== "list");
+    }
+
+    function getFriendlyDate(dateISO, fallback) {
+      if (!dateISO) {
+        return fallback || "Date TBD";
+      }
+
+      const date = new Date(`${dateISO}T00:00:00`);
+      const today = startOfDay(new Date());
+      const tomorrow = new Date(today.getTime() + dayMs());
+
+      if (date.getTime() === today.getTime()) {
+        return "Today";
+      }
+      if (date.getTime() === tomorrow.getTime()) {
+        return "Tomorrow";
+      }
+
+      return new Intl.DateTimeFormat("en-US", {
+        weekday: "long",
+        month: "long",
+        day: "numeric"
+      }).format(date);
+    }
+
+    function getStatusLabel(status) {
+      if (status === "completed") return "Completed";
+      if (status === "pending") return "Pending";
+      return "Upcoming";
+    }
+
+    function pickKnownFilters(filters) {
+      const picked = {};
+      Object.keys(state.filters).forEach((key) => {
+        if (typeof filters[key] === "string") {
+          picked[key] = filters[key];
+        }
+      });
+      return picked;
+    }
+
+    function getFiltersFromUrl() {
+      const params = new URLSearchParams(window.location.search);
+
+      return {
+        search: params.get("search") || "",
+        team: params.get("team") || "",
+        location: params.get("location") || "",
+        league: params.get("league") || "",
+        division: params.get("division") || "",
+        range: params.get("range") || "upcoming"
+      };
+    }
+
+    function syncFilterUrl() {
+      const params = new URLSearchParams();
+
+      Object.entries(state.filters).forEach(([key, value]) => {
+        if (value && !(key === "range" && value === "upcoming")) {
+          params.set(key, value);
+        }
+      });
+
+      const query = params.toString();
+      const nextUrl = query ? `${window.location.pathname}?${query}` : window.location.pathname;
+      window.history.replaceState({}, "", nextUrl);
+    }
+
+    function normalize(value) {
+      return String(value || "").trim().toLowerCase();
+    }
+
+    function startOfDay(date) {
+      return new Date(date.getFullYear(), date.getMonth(), date.getDate());
+    }
+
+    function dayMs() {
+      return 24 * 60 * 60 * 1000;
+    }
+
+  </script>
+</body>
+</html>
