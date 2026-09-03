@@ -96,6 +96,14 @@
       display: none;
     }
 
+    .favorite-summary {
+      grid-column: 1 / -1;
+      min-height: 24px;
+      color: var(--schedule-muted);
+      font-size: 13px;
+      font-weight: 700;
+    }
+
     .field {
       min-width: 0;
     }
@@ -249,6 +257,10 @@
     .game-time {
       font-weight: 700;
       white-space: nowrap;
+    }
+
+    .mobile-league-chip {
+      display: none;
     }
 
     .game-teams {
@@ -469,8 +481,20 @@
 
       .game-time {
         grid-row: auto;
+        display: grid;
+        justify-items: start;
+        gap: 3px;
         font-size: 13px;
         white-space: normal;
+      }
+
+      .mobile-league-chip {
+        display: inline-flex;
+        margin-right: 0;
+        padding: 1px 5px;
+        font-size: 10px;
+        line-height: 1.1;
+        white-space: nowrap;
       }
 
       .game-teams {
@@ -568,6 +592,7 @@
 
         <button class="button secondary" id="clearFilters" type="button">Clear</button>
         <button class="button subtle collapsible-filter" id="saveFavorite" type="button">Save Favourite</button>
+        <div class="favorite-summary hidden" id="favoriteSummary" aria-live="polite"></div>
       </form>
 
       <section id="loadingState" class="skeleton" aria-label="Loading schedule">
@@ -626,6 +651,7 @@
       divisionField: document.getElementById("divisionField"),
       clearFilters: document.getElementById("clearFilters"),
       saveFavorite: document.getElementById("saveFavorite"),
+      favoriteSummary: document.getElementById("favoriteSummary"),
       clearEmpty: document.getElementById("clearEmpty"),
       retry: document.getElementById("retry"),
       loadingState: document.getElementById("loadingState"),
@@ -871,7 +897,16 @@
 
       const time = document.createElement("div");
       time.className = "game-time";
-      time.textContent = game.time || "Time TBD";
+      const timeValue = document.createElement("span");
+      timeValue.textContent = game.time || "Time TBD";
+      time.appendChild(timeValue);
+
+      if (game.league) {
+        const mobileChip = document.createElement("span");
+        mobileChip.className = `league-chip mobile-league-chip ${getLeagueClass(game.league)}`;
+        mobileChip.textContent = game.league;
+        time.appendChild(mobileChip);
+      }
 
       const matchup = document.createElement("div");
       const teams = document.createElement("div");
@@ -1101,15 +1136,15 @@
 
     function getFiltersFromUrl() {
       const params = new URLSearchParams(window.location.search);
+      const filters = {};
 
-      return {
-        search: params.get("search") || "",
-        team: params.get("team") || "",
-        location: params.get("location") || "",
-        league: params.get("league") || "",
-        division: params.get("division") || "",
-        range: params.get("range") || "upcoming"
-      };
+      ["search", "team", "location", "league", "division", "range"].forEach((key) => {
+        if (params.has(key)) {
+          filters[key] = params.get(key) || "";
+        }
+      });
+
+      return filters;
     }
 
     function syncFilterUrl() {
@@ -1128,20 +1163,21 @@
 
     function saveFavoriteFilters() {
       const favorite = {
+        search: state.filters.search,
         league: state.filters.league,
         team: state.filters.team,
         location: state.filters.location,
+        division: state.filters.division,
         range: state.filters.range
       };
 
-      window.localStorage.setItem(FAVORITE_FILTER_KEY, JSON.stringify(favorite));
-      document.cookie = `${FAVORITE_FILTER_KEY}=${encodeURIComponent(JSON.stringify(favorite))}; max-age=31536000; path=/; samesite=lax`;
+      setFavoriteStorage(JSON.stringify(favorite));
       updateFavoriteButton(true);
     }
 
     function getFavoriteFilters() {
       try {
-        const storedValue = window.localStorage.getItem(FAVORITE_FILTER_KEY) || getCookie(FAVORITE_FILTER_KEY) || "{}";
+        const storedValue = getFavoriteStorage() || "{}";
         const stored = JSON.parse(storedValue);
         return pickKnownFilters(stored);
       } catch (error) {
@@ -1150,15 +1186,73 @@
     }
 
     function updateFavoriteButton(justSaved = false) {
-      const hasFavorite = Boolean(window.localStorage.getItem(FAVORITE_FILTER_KEY) || getCookie(FAVORITE_FILTER_KEY));
+      const hasFavorite = Boolean(getFavoriteStorage());
       elements.saveFavorite.classList.toggle("active", hasFavorite || justSaved);
       elements.saveFavorite.textContent = justSaved ? "Saved" : "Save Favourite";
+      updateFavoriteSummary();
 
       if (justSaved) {
         window.setTimeout(() => {
           elements.saveFavorite.textContent = "Save Favourite";
         }, 1400);
       }
+    }
+
+    function updateFavoriteSummary() {
+      const favorite = getFavoriteFilters();
+      const summary = formatFavoriteFilters(favorite);
+
+      elements.favoriteSummary.textContent = summary ? `Favourite: ${summary}` : "";
+      elements.favoriteSummary.classList.toggle("hidden", !summary);
+    }
+
+    function formatFavoriteFilters(filters) {
+      const parts = [
+        filters.search ? `Search "${filters.search}"` : "",
+        filters.league,
+        filters.team,
+        filters.location,
+        filters.division,
+        getRangeLabel(filters.range)
+      ].filter(Boolean);
+
+      return parts.join(" / ");
+    }
+
+    function getRangeLabel(range) {
+      const labels = {
+        upcoming: "Upcoming",
+        today: "Today",
+        week: "This Week",
+        next7: "Next 7 Days",
+        completed: "Completed",
+        all: "All Games"
+      };
+
+      return labels[range] || "";
+    }
+
+    function setFavoriteStorage(value) {
+      try {
+        window.localStorage.setItem(FAVORITE_FILTER_KEY, value);
+      } catch (error) {
+        console.warn("Unable to save favourite filters in localStorage.", error);
+      }
+
+      document.cookie = `${FAVORITE_FILTER_KEY}=${encodeURIComponent(value)}; max-age=31536000; path=/; samesite=lax`;
+    }
+
+    function getFavoriteStorage() {
+      try {
+        const localValue = window.localStorage.getItem(FAVORITE_FILTER_KEY);
+        if (localValue) {
+          return localValue;
+        }
+      } catch (error) {
+        console.warn("Unable to read favourite filters from localStorage.", error);
+      }
+
+      return getCookie(FAVORITE_FILTER_KEY);
     }
 
     function getCookie(name) {
