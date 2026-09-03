@@ -8,11 +8,14 @@
       --schedule-bg: #f7f8fb;
       --schedule-surface: #ffffff;
       --schedule-surface-soft: #eef2f7;
+      --schedule-surface-warm: #fffaf0;
       --schedule-text: #172033;
       --schedule-muted: #657287;
       --schedule-border: #d9e0ea;
+      --schedule-border-strong: #c4d0dd;
       --schedule-accent: #0f766e;
       --schedule-accent-dark: #115e59;
+      --schedule-gold: #f5b02e;
       --schedule-danger: #b91c1c;
       --league-monday: #0f766e;
       --league-comp: #2563eb;
@@ -32,7 +35,9 @@
     body {
       margin: 0;
       min-width: 0;
-      background: var(--schedule-bg);
+      background:
+        linear-gradient(180deg, #eef7f5 0, var(--schedule-bg) 240px),
+        var(--schedule-bg);
       color: var(--schedule-text);
     }
 
@@ -87,20 +92,46 @@
       margin-bottom: 18px;
       padding: 14px;
       border: 1px solid var(--schedule-border);
+      border-top: 4px solid var(--schedule-accent);
       border-radius: var(--schedule-radius);
       background: var(--schedule-surface);
-      box-shadow: var(--schedule-shadow);
+      box-shadow: 0 12px 30px rgba(23, 32, 51, 0.1);
     }
 
     .filter-toggle {
       display: none;
     }
 
-    .favorite-summary {
+    .filter-summary {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      align-items: center;
       grid-column: 1 / -1;
-      min-height: 24px;
+      min-height: 34px;
+      padding: 7px 9px;
+      border: 1px solid #f3d58d;
+      border-radius: 6px;
+      background: linear-gradient(90deg, var(--schedule-surface-warm), #fff);
       color: var(--schedule-muted);
       font-size: 13px;
+      font-weight: 700;
+    }
+
+    .filter-summary-label {
+      color: var(--schedule-text);
+    }
+
+    .filter-summary-chip {
+      display: inline-flex;
+      align-items: center;
+      min-height: 22px;
+      padding: 2px 8px;
+      border: 1px solid var(--schedule-border-strong);
+      border-radius: 999px;
+      background: #fff;
+      color: var(--schedule-text);
+      font-size: 12px;
       font-weight: 700;
     }
 
@@ -169,6 +200,7 @@
 
     .button.subtle.active {
       border-color: var(--schedule-accent);
+      background: var(--schedule-surface-warm);
       color: var(--schedule-accent-dark);
     }
 
@@ -208,7 +240,7 @@
     .date-heading {
       display: block;
       padding: 13px 16px;
-      background: var(--schedule-surface-soft);
+      background: linear-gradient(90deg, var(--schedule-surface-soft), #fff);
       border-bottom: 1px solid var(--schedule-border);
       font-weight: 700;
     }
@@ -237,6 +269,11 @@
 
     .schedule-row {
       border-left: 5px solid var(--schedule-border);
+      transition: background-color 140ms ease, box-shadow 140ms ease;
+    }
+
+    .schedule-row:hover {
+      box-shadow: inset 0 0 0 999px rgba(255, 255, 255, 0.28);
     }
 
     .schedule-row.league-monday {
@@ -259,7 +296,7 @@
       white-space: nowrap;
     }
 
-    .mobile-league-chip {
+    .league-chip.mobile-league-chip {
       display: none;
     }
 
@@ -464,6 +501,7 @@
 
       .schedule-row {
         grid-template-columns: 48px minmax(0, 1fr) minmax(54px, auto);
+        grid-template-rows: auto auto;
         gap: 2px 7px;
         align-items: center;
         padding: 6px 7px;
@@ -480,17 +518,20 @@
       }
 
       .game-time {
-        grid-row: auto;
-        display: grid;
-        justify-items: start;
-        gap: 3px;
+        grid-column: 1;
+        grid-row: 1;
         font-size: 13px;
         white-space: normal;
       }
 
-      .mobile-league-chip {
+      .league-chip.mobile-league-chip {
         display: inline-flex;
+        grid-column: 1;
+        grid-row: 2;
+        align-self: start;
+        justify-self: start;
         margin-right: 0;
+        margin-top: 1px;
         padding: 1px 5px;
         font-size: 10px;
         line-height: 1.1;
@@ -522,6 +563,7 @@
 
       .results {
         grid-column: 2 / 4;
+        grid-row: 2;
         gap: 4px;
       }
 
@@ -592,7 +634,7 @@
 
         <button class="button secondary" id="clearFilters" type="button">Clear</button>
         <button class="button subtle collapsible-filter" id="saveFavorite" type="button">Save Favourite</button>
-        <div class="favorite-summary hidden" id="favoriteSummary" aria-live="polite"></div>
+        <div class="filter-summary" id="filterSummary" aria-live="polite"></div>
       </form>
 
       <section id="loadingState" class="skeleton" aria-label="Loading schedule">
@@ -651,7 +693,7 @@
       divisionField: document.getElementById("divisionField"),
       clearFilters: document.getElementById("clearFilters"),
       saveFavorite: document.getElementById("saveFavorite"),
-      favoriteSummary: document.getElementById("favoriteSummary"),
+      filterSummary: document.getElementById("filterSummary"),
       clearEmpty: document.getElementById("clearEmpty"),
       retry: document.getElementById("retry"),
       loadingState: document.getElementById("loadingState"),
@@ -770,6 +812,7 @@
       });
 
       render();
+      updateFilterSummary();
 
       if (announce) {
         syncFilterUrl();
@@ -901,13 +944,6 @@
       timeValue.textContent = game.time || "Time TBD";
       time.appendChild(timeValue);
 
-      if (game.league) {
-        const mobileChip = document.createElement("span");
-        mobileChip.className = `league-chip mobile-league-chip ${getLeagueClass(game.league)}`;
-        mobileChip.textContent = game.league;
-        time.appendChild(mobileChip);
-      }
-
       const matchup = document.createElement("div");
       const teams = document.createElement("div");
       teams.className = "game-teams";
@@ -947,7 +983,16 @@
       results.className = "results";
       renderResults(game).forEach((node) => results.appendChild(node));
 
-      row.append(time, matchup, location, results);
+      row.append(time, matchup, location);
+
+      if (game.league) {
+        const mobileChip = document.createElement("span");
+        mobileChip.className = `league-chip mobile-league-chip ${getLeagueClass(game.league)}`;
+        mobileChip.textContent = game.league;
+        row.appendChild(mobileChip);
+      }
+
+      row.appendChild(results);
       return row;
     }
 
@@ -1189,7 +1234,6 @@
       const hasFavorite = Boolean(getFavoriteStorage());
       elements.saveFavorite.classList.toggle("active", hasFavorite || justSaved);
       elements.saveFavorite.textContent = justSaved ? "Saved" : "Save Favourite";
-      updateFavoriteSummary();
 
       if (justSaved) {
         window.setTimeout(() => {
@@ -1198,25 +1242,36 @@
       }
     }
 
-    function updateFavoriteSummary() {
-      const favorite = getFavoriteFilters();
-      const summary = formatFavoriteFilters(favorite);
+    function updateFilterSummary() {
+      elements.filterSummary.textContent = "";
+      elements.filterSummary.appendChild(makeSummaryLabel("Filter:"));
 
-      elements.favoriteSummary.textContent = summary ? `Favourite: ${summary}` : "";
-      elements.favoriteSummary.classList.toggle("hidden", !summary);
+      formatCurrentFilters(state.filters).forEach((value) => {
+        const chip = document.createElement("span");
+        chip.className = "filter-summary-chip";
+        chip.textContent = value;
+        elements.filterSummary.appendChild(chip);
+      });
     }
 
-    function formatFavoriteFilters(filters) {
+    function makeSummaryLabel(text) {
+      const label = document.createElement("span");
+      label.className = "filter-summary-label";
+      label.textContent = text;
+      return label;
+    }
+
+    function formatCurrentFilters(filters) {
       const parts = [
         filters.search ? `Search "${filters.search}"` : "",
-        filters.league,
-        filters.team,
-        filters.location,
-        filters.division,
+        filters.league ? `League: ${filters.league}` : "",
+        filters.team ? `Team: ${filters.team}` : "",
+        filters.location ? `Location: ${filters.location}` : "",
+        filters.division ? `Division: ${filters.division}` : "",
         getRangeLabel(filters.range)
       ].filter(Boolean);
 
-      return parts.join(" / ");
+      return parts.length > 0 ? parts : ["Upcoming"];
     }
 
     function getRangeLabel(range) {
