@@ -1,0 +1,37 @@
+import { getValuesWrapper } from "backend/googlesheet-wrapper.jsw";
+import { SCHEDULE_CACHE_TTL_MS, SCHEDULE_RANGE } from "backend/schedule-config";
+import { normalizeScheduleRows } from "backend/schedule-normalizer";
+
+let cachedSchedule = null;
+let cachedAt = 0;
+
+export async function getScheduleData(options = {}) {
+  const now = Date.now();
+
+  if (!options.forceRefresh && cachedSchedule && now - cachedAt < SCHEDULE_CACHE_TTL_MS) {
+    return cachedSchedule;
+  }
+
+  try {
+    const rows = await getValuesWrapper(SCHEDULE_RANGE);
+    const schedule = normalizeScheduleRows(rows || []);
+
+    if (schedule.warnings.length > 0) {
+      console.warn("Schedule data warnings:", schedule.warnings);
+    }
+
+    cachedSchedule = {
+      ...schedule,
+      cache: {
+        ttlMs: SCHEDULE_CACHE_TTL_MS,
+        refreshedAt: new Date(now).toISOString()
+      }
+    };
+    cachedAt = now;
+
+    return cachedSchedule;
+  } catch (error) {
+    console.error("Unable to load schedule data:", error);
+    throw new Error("Unable to load schedule data.");
+  }
+}
