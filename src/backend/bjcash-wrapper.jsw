@@ -1,0 +1,57 @@
+import { getValues } from "@velo/google-sheets-integration-backend";
+import { appendValues } from "@velo/google-sheets-integration-backend";
+import wixSecretsBackend from "wix-secrets-backend";
+
+async function getSecretSheetId() {
+  const id = await wixSecretsBackend.getSecret("CashReportId");
+  return id;
+}
+
+export async function getValuesWrapper(range) {
+  try {
+    validateRange(range);
+    try {
+      const sheetId = await getSecretSheetId();
+      const result = await getValues(sheetId, range);
+      const response = result.data.values;
+       return response;
+    } catch (err) {
+      return Promise.reject("Get values failed. Info: " + err);
+    }
+  } catch (validationError) {
+    return Promise.reject(validationError.toString());
+  }
+}
+
+function validateRange(range) {
+  const regex = /([a-zA-Z0-9:!]+)/g;
+  const match = range.match(regex);
+  if (!match || match.length !== 1 || match[0] !== range) {
+    throw new Error(`Input range is invalid (got: ${range})`);
+  }
+}
+export async function appendValuesWrapper(values) {
+  try {
+    validateValues(values);
+    try {
+      const sheetId = await getSecretSheetId();
+      const result = await appendValues(sheetId, values);
+      const response = result.data.updates.updatedRows + " rows were appended";
+      return response;
+    } catch (err) {
+      return Promise.reject("Append values failed. Info: " + err);
+    }
+  } catch (validationError) {
+    return Promise.reject(validationError.toString());
+  }
+}
+
+function validateValues(values) {
+  for (const val of values) {
+    if (typeof val !== "string") {
+      throw new Error(
+        `Input value's type must be a string (got: ${val}, ${typeof val})`,
+      );
+    }
+  }
+}
